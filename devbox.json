@@ -1,0 +1,39 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.16.0/.schema/devbox.schema.json",
+  "packages": [
+    "nodejs@22",
+    "python@3.11",
+    "uv",
+    "git",
+    "curl",
+    "jq@1.7"
+  ],
+  "env": {
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "PYTHONUNBUFFERED": "1",
+    "PIP_DISABLE_PIP_VERSION_CHECK": "1"
+  },
+  "shell": {
+    "init_hook": [
+      "echo '🚀 OpenCode (tridev) environment ready'",
+      "node -v",
+      "python --version",
+      "[ -f .env ] && set -a && source .env && set +a",
+      "echo ''",
+      "echo '📦 Commands:'",
+      "echo '   devbox run opencode         → Launch OpenCode (Ollama skipped by default)'",
+      "echo '   devbox run opencode-ollama  → Launch OpenCode with Ollama auto-start'",
+      "echo ''",
+      "opencode() { devbox run opencode \"$@\"; }",
+      "opencode-ollama() { devbox run opencode-ollama \"$@\"; }"
+    ],
+    "scripts": {
+      "opencode": [
+        "bash scripts/opencode.sh $@"
+      ],
+      "opencode-ollama": [
+        "bash scripts/opencode.sh --ollama $@"
+      ]
+    }
+  }
+}

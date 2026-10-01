@@ -1,0 +1,9 @@
+{
+  "scripts": {
+    "ollama:serve": "bash tools/ollama-serve.sh & node tools/ollama-tool-call-proxy.mjs",
+    "ollama:stop": "bash tools/ollama-stop.sh"
+  },
+  "dependencies": {
+    "opencode-ai": "^1.18.31"
+  }
+}

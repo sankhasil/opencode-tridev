@@ -1,0 +1,50 @@
+# Secrets
+.env
+.envrc
+
+# Node
+node_modules/
+npm-debug.log*
+
+# OpenCode runtime
+.opencode/node_modules/
+.opencode/package.json
+.opencode/package-lock.json
+.opencode/bun.lock
+
+# open-code/ is NOT ignored wholesale. node_modules/ above already covers its 138 MB;
+# tools/ holds the vendored Ollama tool-call proxy that ADR 0006 depends on, and
+# package.json declares the ollama:serve script the launcher calls. Both must be tracked.
+
+# Agent skill bundles (regenerated from skills-lock.json via setup-opencode-skills.sh)
+.agents/
+
+# Devbox / Nix (machine-specific, ~150 MB; devbox.lock IS tracked)
+.devbox/
+
+# Python venv
+.venv/
+
+# Launcher runtime logs
+.ollama-serve.log
+*.log
+
+# Trinity orchestrator run state (contract section 5: one plain-text dir per run,
+# never cleaned automatically, so it accumulates by design)
+.trinity/
+
+# Operator journal — personal notes, not project knowledge.
+# ponytail: acceptable because the repo is public and the journal names the operator.
+# Limitation: no agent/session memory survives a fresh clone.
+# Upgrade path: commit a scrubbed journal/ under docs/agents/sessions/ instead.
+docs/journal/
+
+# Launcher-generated config. Absolute skill paths are machine-specific, so committing
+# opencode.json leaks the local username and breaks on every other machine.
+# ponytail: acceptable because scripts/opencode.sh regenerates it on first launch.
+# Limitation: a fresh clone has no opencode.json until the launcher runs.
+# Upgrade path: commit opencode.example.json with relative paths if hand-editing is needed.
+/opencode.json
+
+# OS
+.DS_Store
