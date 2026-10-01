@@ -12,6 +12,9 @@ A local-first wrapper around the [OpenCode CLI](https://opencode.ai): one reprod
 up front instead of auto-routed, and vendored skills committed alongside the code that uses
 them. Everything runs on your machine. No CI, no service, no dashboard.
 
+**Plus a three-agent workflow** — 🧙‍♂️ Brahma plans, 🌌 Vishnu builds, 🔱 Maheshwara verifies,
+each barred from editing the previous one's files. See [The Agent Trinity](#the-agent-trinity).
+
 ---
 
 ## Requirements
@@ -60,13 +63,104 @@ There is no root `package.json`. `devbox run` is the only supported entry point.
 
 ---
 
+## 🕉️ The Agent Trinity
+
+This is the part that isn't a wrapper. Instead of one agent doing everything, three roles
+share the work — and each one is **barred from touching the next one's files**:
+
+| Role | Does | May write |
+|------|------|-----------|
+| 🧙‍♂️ **Brahma** — Architect | Spec, plan, ADRs, diagrams. Never writes code. | `docs/` only |
+| 🌌 **Vishnu** — Builder | Code and tests, strictly to Brahma's plan. | Everything *except* `docs/` |
+| 🔱 **Maheshwara** — Finisher | Verifies against the plan, fixes, cleans up, reports. | The whole tree |
+
+Two properties fall out of that, and they are the point:
+
+- **A plan exists before code does.** Vishnu's first move is to look for
+  `docs/architecture/<feature>/plan.md`. No plan, no build.
+- **One role cannot quietly widen its own scope.** Brahma physically cannot edit your
+  source, and Vishnu cannot rewrite the blueprint he was handed.
+
+[scripts/trinity.sh](scripts/trinity.sh) runs all three headlessly, in order:
+
+```bash
+bash scripts/trinity.sh "add retry to the Jira client"
+```
+
+```mermaid
+flowchart TD
+    subgraph SEQ["✅ trinity.sh &lt;task&gt; — sequential, the default"]
+    direction TB
+    B["🧙‍♂️ <b>Brahma</b> — Architect<br/>spec · plan · ADRs · diagrams<br/><b>writes docs/ only</b>"] -->|"blueprint ready"| V["🌌 <b>Vishnu</b> — Builder<br/>code + tests, to that plan<br/><b>writes code, never docs/</b>"] -->|"implementation complete"| M["🔱 <b>Maheshwara</b> — Finisher<br/>verify · fix · clean up · report<br/><b>whole tree</b>"]
+    end
+
+    subgraph PAR["⚡ trinity.sh --parallel — guarded"]
+    direction TB
+    G{"plan.md<br/>already on disk?"} -->|no| X3["⛔ exit 3<br/><i>refuses, starts nothing</i>"]
+    G -->|yes| PB["🧙‍♂️ <b>Brahma</b><br/><b>docs/ only</b>"]
+    G -->|yes| PV["🌌 <b>Vishnu</b><br/><b>code</b>"]
+    end
+
+    M --> OK(["✅ exit 0 — every role completed"])
+    PAR --> OK
+
+    classDef b fill:#ede7f6,stroke:#5e35b1,color:#311b92
+    classDef v fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+    classDef m fill:#fce4ec,stroke:#ad1457,color:#880e4f
+    classDef ok fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+    classDef warn fill:#fff8e1,stroke:#f9a825,color:#e65100
+    classDef gate fill:#eceff1,stroke:#546e7a,color:#263238
+
+    class B,PB b
+    class V,PV v
+    class M m
+    class OK ok
+    class X3 warn
+    class G gate
+```
+
+**Sequential is the default.** `--parallel` runs Brahma ‖ Vishnu only, and only because
+their path sets are genuinely disjoint — Maheshwara is never in a concurrent pair, because
+he needs the uncontended tree. The parallel mode **refuses with exit 3** unless a plan
+already exists, because Vishnu needs something to build from:
+
+```bash
+bash scripts/trinity.sh "add retry to the Jira client"   # creates the plan
+bash scripts/trinity.sh --parallel "now implement it"     # plan is on disk → runs
+```
+
+**A failure anywhere stops the chain.** A role that crashes or refuses its task ends the run
+with exit 1. In the sequential chain, a role that also writes outside its permitted paths
+has the offending files named and listed — checked *after the fact*, by comparing
+modification times. It reports a breach; it cannot undo one.
+
+**That check does not run in `--parallel` mode.** With two roles sharing one tree an mtime
+sweep cannot tell whose write is whose, and since Brahma's permitted set (`docs/`) and
+Vishnu's (everything else) together cover the whole tree, every file is permitted for
+*someone*. The check is skipped rather than run wrong. So: **breach detection is a
+sequential-mode guarantee only.**
+
+> ⚠️ One honest caveat, recorded in
+> [ADR 0003](docs/adr/0003-parallel-agents-via-disjoint-path-sets.md): the path invariant is
+> **social, not enforced**. Nothing *stops* Vishnu from opening `docs/` in either mode — in
+> sequential mode a breach is detected afterwards and reported; in parallel mode it is not
+> detected at all. And because roles report their own outcome via a sentinel line, that
+> report is a model's self-assessment, not a proof.
+> [ADR 0007](docs/adr/0007-trinity-orchestrator-runs-headless-opencode-run.md) records both
+> limitations and the measurements behind them.
+
+There is also **no git and no worktree isolation**, so a stray edit in the working tree is
+unrecoverable. That trade is deliberate and documented, not an oversight.
+
+---
+
 ## What's in the box
 
 | Path | Purpose |
 |------|---------|
 | [AGENTS.md](AGENTS.md) | The instruction manual every agent session reads first |
 | [scripts/opencode.sh](scripts/opencode.sh) | Launcher: reads `.env`, generates config, starts Ollama if asked, execs the CLI |
-| [scripts/trinity.sh](scripts/trinity.sh) | Headless orchestrator — runs a spec through isolated agents, one path set at a time |
+| [scripts/trinity.sh](scripts/trinity.sh) | Runs the Agent Trinity headlessly — see [above](#the-agent-trinity) |
 | [open-code/tools/](open-code/tools) | Vendored Ollama tool-call proxy ([ADR 0006](docs/adr/0006-vendor-ollama-tool-call-proxy.md)) |
 | [docs/adr/](docs/adr) | Seven accepted decisions, and why |
 | [docs/architecture/](docs/architecture) | Trinity orchestrator design and run contract |
@@ -303,7 +397,13 @@ Models missing from the pricing table display as `UNPRICED - <name>`. Nothing is
 devbox run opencode                 # default model, no Ollama
 devbox run opencode-ollama          # with Ollama auto-start
 devbox run opencode /path/to/project
+
+bash scripts/trinity.sh "<task>"          # brahma -> vishnu -> maheshwara
+bash scripts/trinity.sh --parallel "<task>"  # brahma || vishnu, needs a plan on disk
 ```
+
+Exit codes for `trinity.sh`: `0` all roles completed · `1` a role crashed, refused, or
+breached its paths · `2` usage error · `3` `--parallel` with no plan on disk.
 
 Script-level tests, runnable without the CLI:
 
@@ -316,12 +416,15 @@ bash scripts/test-opencode-sync.sh
 
 ## 🎯 Agent Behavior
 
-The AI follows **Ponytail Engineering Rules** from `AGENTS.md`:
+Every role follows the **Ponytail Engineering Rules** from `AGENTS.md`:
 
 - ✅ **Smallest solution first** — Don't add features not requested
 - ✅ **Use existing code** — Prefer extending over writing new
 - ✅ **Minimal diffs** — Reviewable, deletable changes
 - ✅ **Test behavior** — Verify before claiming complete
+
+Each trinity role also carries its own remit on top of these — see
+[The Agent Trinity](#the-agent-trinity).
 
 ---
 
