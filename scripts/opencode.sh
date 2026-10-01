@@ -344,8 +344,9 @@ else
   echo -e "${YEL}  Using embedded T-Systems model catalog (first run bootstrap)${RST}"
 fi
 
-    SKILLS_PATH="$REPO_ROOT/.agents/skills"
-    OPEN_CODE_SKILLS="$REPO_ROOT/open-code/.agents/skills"
+    # ponytail: one relative path so a fresh clone resolves the skills without
+    # an absolute /Users/... path baked into the generated config.
+    SKILLS_PATH=".opencode/skills"
 
 # ── Model selection: env → existing opencode.json → built-in default ──────────
 # Reading the existing config is what makes opencode.json the source of truth for
@@ -414,7 +415,6 @@ fi
   "plugin": ["opencode-skillful", "superpowers@git+https://github.com/obra/superpowers.git"],
   "skills": {
     "paths": [
-      "$OPEN_CODE_SKILLS",
       "$SKILLS_PATH"
     ]
   }

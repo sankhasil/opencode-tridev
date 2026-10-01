@@ -71,6 +71,8 @@ There is no root `package.json`. `devbox run` is the only supported entry point.
 | [docs/adr/](docs/adr) | Seven accepted decisions, and why |
 | [docs/architecture/](docs/architecture) | Trinity orchestrator design and run contract |
 | [docs/diagrams/tridev.dsl](docs/diagrams/tridev.dsl) | C4 model as code |
+| [opencode.json.template](opencode.json.template) | Tracked reference for the config shape (the live `opencode.json` is gitignored) |
+| [.opencode/skills/](.opencode/skills) | 46 skill packages, loaded via the relative `skills.paths` entry |
 
 `node_modules/`, `.devbox/`, `.venv/`, `.agents/` and runtime logs are gitignored and
 regenerated on demand. Tracked repo size is under 1 MB.
@@ -91,87 +93,93 @@ It is a personal development-environment wrapper.
 
 ## 🏗️ Architecture Diagram
 
+```mermaid
+flowchart TD
+    DEVBOX["🐚 devbox<br/>devbox.json"] --> LAUNCH
+
+    subgraph LAUNCH["🚀 Launch sequence — scripts/opencode.sh"]
+        direction TB
+        L1["📖 Load .env"] --> L2["⚙️ Generate opencode.json"] --> L3["📂 Merge AGENTS.md into target"] --> L4{"--ollama?"}
+        L4 -->|yes| L5["🧪 Start Ollama proxy"] --> L6["🚀 exec opencode-ai"]
+        L4 -->|no| L6
+    end
+
+    subgraph CONFIG["⚙️ Configuration"]
+        direction TB
+        LIVE["opencode.json<br/><i>live · gitignored</i>"]
+        TPL["opencode.json.template<br/><i>tracked reference</i>"]
+        ENV[".env<br/><i>secrets · gitignored</i>"]
+    end
+
+    subgraph AGENT["🧠 Agent session"]
+        direction TB
+        A1["📜 Read AGENTS.md<br/>rules &amp; behaviour"]
+        A2["🎯 Load skills<br/>.opencode/skills/"]
+        A3["🔌 Connect to model"]
+        A4["⚡ Interact<br/>code · Jira · files"]
+        A1 --> A2 --> A3 --> A4
+    end
+
+    subgraph SKILLS["🎯 Skills"]
+        direction TB
+        S1["46 skills in-tree<br/>.opencode/skills/"]
+        S2["superpowers<br/><i>via plugin</i>"]
+    end
+
+    subgraph MODELS["🔌 Model providers"]
+        direction TB
+        M1["🧠 Ollama<br/>localhost:4198"]
+        M2["🔮 T-Systems Hub<br/>GLM · Claude · GPT"]
+    end
+
+    subgraph TOOLS["🧰 Tools &amp; integrations"]
+        direction TB
+        T1["🔍 Jira MCP<br/>mcp-atlassian"]
+        T2["📦 open-code/node_modules<br/>OpenCode CLI"]
+    end
+
+    L2 -->|writes| LIVE
+    LIVE -.->|shape of| TPL
+    L1 -->|reads| ENV
+    L6 --> T2
+    T2 --> AGENT
+    AGENT --> SKILLS
+    AGENT --> MODELS
+    AGENT --> TOOLS
+
+    classDef cfg fill:#e8eaf6,stroke:#3949ab,color:#1a237e
+    classDef skill fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+    classDef model fill:#fff3e0,stroke:#ef6c00,color:#e65100
+    classDef tool fill:#fce4ec,stroke:#c2185b,color:#880e4f
+    classDef secret fill:#ffebee,stroke:#b71c1c,color:#b71c1c,stroke-dasharray: 4 3
+
+    class LIVE,TPL,L1,L2 cfg
+    class S1,S2,A2 skill
+    class M1,M2,A3 model
+    class T1,T2 tool
+    class ENV secret
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                      📁 REPO STRUCTURE                           │
-│                                                                 │
-│  📦 project-root/                                               │
-│  ├── 📜 AGENTS.md          ← 👨‍💻 Main instruction manual       │
-│  ├── ⚙️  opencode.json     ← 🔧 Configuration (auto-generated)  │
-│  ├── 📜 devbox.json        ← 🐚 Environment setup             │
-│  ├── 📂 scripts/                                           │
-│  │   └── 📜 opencode.sh    ← 🚀 Launcher & config merger      │
-│  ├── 📂 open-code/                                         │
-│  │   └── 📦 node_modules/    ← OpenCode.ai installation       │
-│  └── 📂 .agents/                                           │
-│      └── 📂 skills/            ← 🎯 AI skill packages         │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-                         │
-                         ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    🔄 LAUNCH SEQUENCE                            │
-│                                                                 │
-│  🎬 1. `devbox run opencode`                                    │
-│       │                                                         │
-│       ├── 📖 Loads .env (if present)                            │
-│       ├── ⚙️  Generates opencode.json from opencode.sh          │
-│       ├── 📂 Merges AGENTS.md into target folder                │
-│       ├── 🧪 Checks/configures Ollama (if --ollama flag)        │
-│       └── 🚀 Executes `opencode-ai` with merged config          │
-│                                                                 │
-│  🧠 2. AI Session                                               │
-│       │                                                         │
-│       ├── 📜 Reads AGENTS.md for rules & behavior               │
-│       ├── 🎯 Installs skills if specified                       │
-│       ├── 🔌 Connects to model (Ollama / T-Systems / Cloud)     │
-│       └── ⚡ Interacts with user (code, Jira, files)            │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-                         │
-                         ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    🔌 INTEGRATION POINTS                         │
-│                                                                 │
-│  ┌─────────────┐   ┌──────────────┐   ┌──────────────────────┐ │
-│  │   🧠 AI     │──▶│   ⚙️  Config ├──▶│   🚀  OpenCode CLI   │ │
-│  │ (Qwen/Claude│   │  (JSON)      │   │                      │ │
-│  │ /Gemini)    │   └──────────────┘   └──────────┬───────────┘ │
-│  └──────┬──────┘                                 │              │
-│         │                              ┌─────────▼───────────┐  │
-│         │                              │   🐚 Shell Scripts   │  │
-│         │                              │   (opencode.sh)      │  │
-│         │                              └─────────┬───────────┘  │
-│         │                                        │              │
-│  ┌──────▼──────┐   ┌──────────────┐   ┌─────────▼───────────┐  │
-│  │   🔍 Jira   │   │   📦 Devbox  │   │   🎯 AI Skills      │  │
-│  │  (Atlassian)│   │  (Package mgr)│  │  (superpowers, etc)  │  │
-│  └─────────────┘   └──────────────┘   └──────────────────────┘ │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-                         │
-                         ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                   🔐 AUTHENTICATION                              │
-│                                                                 │
-│  Variable                │  Purpose                          │
-│  ────────────────────────│──────────────────────────────────  │
-│  TSYSTEMS_OPENCODE_API_KEY  │  Cloud AI (T-Systems HUB)       │
-│  JIRA_URL                   │  Jira server address            │
-│  JIRA_USER_EMAIL            │  Jira login email               │
-│  JIRA_API_TOKEN            │  Jira personal access token      │
-│  JIRA_PROJECT              │  Filter projects (optional)      │
-│                                                                 │
-│  ⚠️  All secrets in .env — NEVER commit to git                  │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
+
+### 🔐 Authentication
+
+| Variable | Purpose |
+|----------|---------|
+| `TSYSTEMS_OPENCODE_API_KEY` | Cloud AI (T-Systems Hub) |
+| `JIRA_URL` | Jira server address |
+| `JIRA_USER_EMAIL` | Jira login email |
+| `JIRA_API_TOKEN` | Jira personal access token |
+| `JIRA_PROJECT` | Filter projects (optional) |
+
+⚠️ All secrets live in `.env` — **never** committed. See [.env.template](.env.template)
+for the full list of variable *names*.
 
 ---
 
 ## 🔧 Configuration File
 
-Located at **`opencode.json`** (regenerated from `opencode.sh` on every launch):
+Located at **`opencode.json`** (regenerated from `opencode.sh` on every launch, gitignored).
+The abridged shape below lives in [`opencode.json.template`](opencode.json.template); the
+launcher additionally injects `provider.tsystems.models` and `mcp` from its embedded catalog:
 
 ```json
 {

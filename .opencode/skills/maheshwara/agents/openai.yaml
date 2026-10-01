@@ -1,0 +1,5 @@
+interface:
+  display_name: "Maheshwara"
+  short_description: "Verify against the blueprint"
+policy:
+  allow_implicit_invocation: true

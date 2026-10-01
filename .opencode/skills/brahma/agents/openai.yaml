@@ -1,0 +1,5 @@
+interface:
+  display_name: "Brahma"
+  short_description: "Design the blueprint"
+policy:
+  allow_implicit_invocation: true

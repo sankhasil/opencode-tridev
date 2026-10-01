@@ -1,0 +1,54 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "opencode/space-bunny-free",
+  "small_model": "opencode/space-bunny-free",
+  "share": "disabled",
+  "provider": {
+    "ollama": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "TIER 0 FREE - Local Ollama",
+      "options": {
+        "baseURL": "http://localhost:4198/v1",
+        "apiKey": "ollama"
+      },
+      "models": {
+        "hhao/qwen2.5-coder-tools:7b": {
+          "name": "TIER 0 FREE - Qwen2.5 Coder Tools 7B (local)"
+        }
+      }
+    },
+    "tsystems": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "T-Systems LLM Hub",
+      "options": {
+        "baseURL": "https://llm-server.llmhub.t-systems.net/v2",
+        "apiKey": "{env:TSYSTEMS_OPENCODE_API_KEY}"
+      }
+    }
+  },
+  "mcp": {
+    "jira": {
+      "type": "local",
+      "command": [
+        "uvx",
+        "mcp-atlassian"
+      ],
+      "enabled": true,
+      "environment": {
+        "JIRA_URL": "{env:JIRA_URL}",
+        "JIRA_USERNAME": "{env:JIRA_USER_EMAIL}",
+        "JIRA_API_TOKEN": "{env:JIRA_API_TOKEN}",
+        "JIRA_PROJECTS_FILTER": "{env:JIRA_PROJECT}"
+      }
+    }
+  },
+  "plugin": [
+    "opencode-skillful",
+    "superpowers@git+https://github.com/obra/superpowers.git"
+  ],
+  "skills": {
+    "paths": [
+      ".opencode/skills"
+    ]
+  }
+}

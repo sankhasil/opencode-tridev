@@ -1,0 +1,5 @@
+interface:
+  display_name: "Vishnu"
+  short_description: "Build to the blueprint"
+policy:
+  allow_implicit_invocation: true

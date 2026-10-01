@@ -39,11 +39,12 @@ npm-debug.log*
 # Upgrade path: commit a scrubbed journal/ under docs/agents/sessions/ instead.
 docs/journal/
 
-# Launcher-generated config. Absolute skill paths are machine-specific, so committing
-# opencode.json leaks the local username and breaks on every other machine.
-# ponytail: acceptable because scripts/opencode.sh regenerates it on first launch.
-# Limitation: a fresh clone has no opencode.json until the launcher runs.
-# Upgrade path: commit opencode.example.json with relative paths if hand-editing is needed.
+# Launcher-generated config. The live file embeds the T-Systems model catalog and
+# machine-local values, so it stays untracked.
+# ponytail: acceptable because scripts/opencode.sh regenerates it on first launch, and
+# opencode.json.template is tracked as the portable reference for the expected shape.
+# Limitation: the template has no tsystems.models block, so the launcher still has to
+# inject the catalog from its embedded copy.
 /opencode.json
 
 # OS
